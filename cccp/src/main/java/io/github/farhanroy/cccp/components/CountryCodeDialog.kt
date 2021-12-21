@@ -13,20 +13,25 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
-import io.github.farhanroy.cccp.state.DialogState
+import io.github.farhanroy.cccp.data.getCountries
+import io.github.farhanroy.cccp.state.DialogStateViewModel
+import io.github.farhanroy.cccp.state.changeCPCountry
+import io.github.farhanroy.cccp.state.changeIsOpen
 import java.util.*
-import kotlin.collections.ArrayList
 
 @Composable
 fun CountryCodeDialog(
     state: MutableState<TextFieldValue>,
-    dialogState: DialogState = viewModel()
+    viewModel: DialogStateViewModel = viewModel(),
 ) {
-    val countries = getListOfCountries()
-    var filteredCountries: List<String>
+    if (viewModel.uiState.isOpen) {
+        val searchedText = state.value.text
+        val countries = if (searchedText.isNotBlank())
+            getCountries().filter { it.name.contains(searchedText, true) }
+        else
+            getCountries()
 
-    if (dialogState.getState()) {
-        Dialog(onDismissRequest = { dialogState.setState(false) }) {
+        Dialog(onDismissRequest = { viewModel.uiState=viewModel.uiState.changeIsOpen(false) }) {
             Box(
                 Modifier
                     .size(480.dp, 480.dp)
@@ -34,30 +39,15 @@ fun CountryCodeDialog(
             ) {
                 LazyColumn(Modifier.padding(8.dp)) {
 
-                    val searchedText = state.value.text
-                    filteredCountries = if (searchedText.isEmpty()) {
-                        countries
-                    } else {
-                        val resultList = ArrayList<String>()
-                        for (country in countries) {
-                            if (country.lowercase(Locale.getDefault())
-                                    .contains(searchedText.lowercase(Locale.getDefault()))
-                            ) {
-                                resultList.add(country)
-                            }
-                        }
-                        resultList
-                    }
-
                     item {
                         SearchView(state = state)
                     }
-                    items(filteredCountries.size) { index ->
+                    items(countries.size) { index ->
                         CountryItem(
-                            countryText = filteredCountries[index],
+                            countryText = countries[index],
                             onItemClick = { selectedCountry ->
-                                dialogState.setState(false)
-                                dialogState.setCountry(selectedCountry)
+                              viewModel.uiState=  viewModel.uiState.changeIsOpen(false)
+                              viewModel.uiState=  viewModel.uiState.changeCPCountry(selectedCountry)
                             }
                         )
                     }
@@ -66,21 +56,4 @@ fun CountryCodeDialog(
 
         }
     }
-}
-
-fun getListOfCountries(): ArrayList<String> {
-    val isoCountryCodes = Locale.getISOCountries()
-    val countryListWithEmojis = ArrayList<String>()
-    for (countryCode in isoCountryCodes) {
-        val locale = Locale("", countryCode)
-        val countryName = locale.displayCountry
-        val flagOffset = 0x1F1E6
-        val asciiOffset = 0x41
-        val firstChar = Character.codePointAt(countryCode, 0) - asciiOffset + flagOffset
-        val secondChar = Character.codePointAt(countryCode, 1) - asciiOffset + flagOffset
-        val flag =
-            (String(Character.toChars(firstChar)) + String(Character.toChars(secondChar)))
-        countryListWithEmojis.add("$countryName $flag")
-    }
-    return countryListWithEmojis
 }
